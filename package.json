@@ -1,0 +1,43 @@
+{
+  "name": "markpress-cli",
+  "version": "1.0.0",
+  "description": "Markdown + 主题 JSON → 带样式 HTML 转换工具",
+  "type": "module",
+  "bin": {
+    "markpress": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "themes"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "convert": "tsx scripts/cli.mts convert",
+    "convert:interactive": "tsx scripts/cli.mts interactive",
+    "dev:cli": "tsx scripts/cli.mts",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "markdown",
+    "html",
+    "converter",
+    "cli",
+    "markpress"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^0.10.1",
+    "dompurify": "^3.4.5",
+    "jsdom": "^26.0.0",
+    "marked": "^18.0.4"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.7.3"
+  }
+}
