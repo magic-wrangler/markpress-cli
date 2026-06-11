@@ -97,7 +97,7 @@ mpr ai
 若尚未配置，会自动引导你完成：
 
 1. **API 密钥** — 在 [DeepSeek 开放平台](https://platform.deepseek.com/api_keys) 创建
-2. **模型** — `deepseek-v4-flash`（推荐）或 `deepseek-v4-pro`（更强）；`deepseek-chat` / `deepseek-reasoner` 将于 2026/07/24 弃用
+2. **模型** — `deepseek-v4-flash`（推荐）或 `deepseek-v4-pro`（更强）；`deepseek-chat` / `deepseek-reasoner` 将于 2026/07/24 弃用；也可选 **「自定义输入…」** 填写 DeepSeek 官方新模型名
 3. **API 地址** — 默认 `https://api.deepseek.com`，一般无需修改
 4. **创造性** — temperature 0.3 / 0.7 / 1.0
 
@@ -110,6 +110,15 @@ mpr ai config
 ```
 
 对话中输入「配置」也可随时重新设置。
+
+对话中输入「配置」打开子菜单，也可直接输入：
+
+| 指令 | 作用 |
+|------|------|
+| `模型` | 查看已保存模型列表 |
+| `新增模型` | 添加模型（含自定义输入） |
+| `切换模型` | 更换当前使用的模型 |
+| `删除模型` | 从列表移除 |
 
 ### 环境变量（可选，优先级高于配置文件）
 

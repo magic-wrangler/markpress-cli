@@ -18,7 +18,7 @@
 | `mpr template` | 复制内置 Markdown 模板到当前目录 |
 | `mpr template list` | 列出内置模板 |
 | `mpr ai` | AI 对话创建/修改主题 JSON |
-| `mpr ai config` | 配置 DeepSeek API 密钥与模型 |
+| `mpr ai config` | 配置 DeepSeek API 密钥与模型（含自定义模型名） |
 
 ## 如何转换 Markdown
 
@@ -62,13 +62,22 @@ mpr template copy --out 我的文档.md
 
 ## AI 对话（mpr ai）专用指令
 
+> DeepSeek **模型**配置详见 **[ai-config.md](./ai-config.md)**。`模型` / `配置` 等是 **CLI 本地指令**，不是主题样式描述。
+
 - `保存`：将当前主题 JSON 写入文件
-- `配置`：修改 API 密钥 / 模型
+- **模型指定命令**（详见 [ai-config.md](./ai-config.md)）：
+  - `模型列表` / `model list` — 查看
+  - `模型新增` / `model add` — 新增（可多次）
+  - `模型修改` / `model switch` — 修改当前使用的模型
+  - `模型删除` / `model delete` — 删除
+  - `模型使用1` / `model use 1` — 按序号快速切换
+  - `模型帮助` / `model help` — 命令说明
+- `配置`：完整 API 设置子菜单
 - `退出` 或 Ctrl+C：结束对话
 - `内置主题`：查看内置主题列表
 - `如何转换`：查看转换说明
 - `帮我转换`：向导选择 md + 主题并转换
-- `@`：两条互斥路径 — **选 Markdown**（可多选 → 再选主题）或 **先选主题 JSON**（→ 再多选 md）；不可混选
+- `@`：两条路径 — **选 Markdown**（可多选 → 再选主题）或 **先选主题**（内置 + 本地 JSON → 再多选 md）
 - 描述风格：如「表头再深一点」→ 生成/修改主题 JSON
 
 ## 环境变量
@@ -78,15 +87,17 @@ mpr template copy --out 我的文档.md
 | `MARKPRESS_INPUT` | 交互模式扫描的文档目录 |
 | `MARKPRESS_OUTPUT` | HTML 输出目录（默认 `./output`） |
 | `DEEPSEEK_API_KEY` | AI 功能所需（可用 `mpr ai config` 保存） |
-| `DEEPSEEK_MODEL` | 默认 `deepseek-v4-flash` |
+| `DEEPSEEK_MODEL` | 默认 `deepseek-v4-flash`；也可用 `mpr ai config` →「自定义输入…」 |
 | `MARKPRESS_KNOWLEDGE_DIR` | 自定义知识库目录（覆盖默认 `knowledge/`） |
 
 ## AI 回答原则
 
 1. 用户问**功能、用法、如何转换** → 用中文简洁说明，**不要输出 JSON**
 2. 用户问**内置主题有哪些** → 列出内置主题名和 convert 示例，**不要输出 JSON**
-3. 用户**描述风格或要求改主题** → 基于内置主题完整 JSON 修改，**输出完整 JSON**
-4. 不要声称「没有内置主题库」；不要编造 markpress 不存在的功能
+3. 用户输入 **`模型`、`配置`、`新增模型`、`切换模型`、`删除模型`** → 这是 **DeepSeek 大模型配置**的本地 CLI 指令，**不是**改主题样式；告知用户直接发送该指令或见 [ai-config.md](./ai-config.md)，**不要输出主题 JSON**
+4. 用户**描述风格或要求改主题**（如「标题改深蓝」「表头加深」）→ 基于内置主题完整 JSON 修改，**输出完整 JSON**
+5. 不要声称「没有内置主题库」；不要编造 markpress 不存在的功能
+6. **「模型」≠ 主题模板**：主题用「内置主题」「正式版」等；DeepSeek 模型用 `模型` / `配置` 指令
 
 ## StyleConfig 主题 JSON 结构
 

@@ -13,6 +13,7 @@ import {
   isAbortError,
   isChatInterrupt,
   printAiReply,
+  printLocalReply,
   printHint,
   printStatus,
   printThemePreview,
@@ -20,6 +21,18 @@ import {
   withSpinner,
 } from '../lib/ai/chat-prompt.ts'
 import { runAiConfigWizard, printCurrentAiConfig } from '../lib/ai/setup.ts'
+import {
+  runConfigMenu,
+  runAddModel,
+  runSwitchModel,
+  runDeleteModel,
+  onModelConfigUpdated,
+  formatModelsListReply,
+  formatModelQuickSwitchHint,
+  formatModelCommandsHelp,
+  tryQuickModelSwitch,
+  MODEL_COMMANDS,
+} from '../lib/ai/model-manager.ts'
 import { CompactAiDisplay, isVerboseAiDisplay } from '../lib/ai/compact-display.ts'
 import { TerminalStreamWriter } from '../lib/ai/terminal-stream.ts'
 import {
@@ -37,11 +50,11 @@ import {
   isAtFilePickerInput,
   parseAtFilter,
 } from '../lib/ai/convert-wizard.ts'
-import { tryLocalInfoReply, isConvertRequestQuery } from '../lib/ai/local-commands.ts'
+import { tryLocalInfoReply, isConvertRequestQuery, parseModelManageQuery } from '../lib/ai/local-commands.ts'
+import { resolveSlashInput } from '../lib/ai/slash-commands.ts'
 
 const EXIT_WORDS = new Set(['退出', 'quit', 'exit', 'q'])
 const SAVE_WORDS = new Set(['保存', 'save'])
-const CONFIG_WORDS = new Set(['配置', 'config', '设置'])
 
 function normalizeFilename(name: string): string {
   const trimmed = name.trim()
@@ -121,6 +134,7 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
     '描述文档风格，如：表头再深一点、字号加大',
     '输入 @：选 Markdown（可多选）或先选主题 JSON · 「帮我转换」同上',
     '输入「内置主题」或「如何转换」查看说明',
+    '模型列表 · 模型新增 · 模型修改 · 模型删除',
     '保存 · 配置 · 退出 · Ctrl+C 退出',
     '粘贴 convert 命令可直接转换',
   ]
@@ -128,6 +142,8 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
     hints.push('完整流式输出：MARKPRESS_AI_VERBOSE=1')
   }
   printHint('提示', hints)
+  const modelQuickHint = formatModelQuickSwitchHint()
+  if (modelQuickHint) printStatus('info', modelQuickHint)
   printStatus('info', `知识库：${getKnowledgeSourceHint()}`)
 
   let session: ReturnType<typeof createThemeChatSession>
@@ -144,7 +160,10 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
     while (true) {
       let text: string
       try {
-        text = (await chat.ask()).trim()
+        const raw = await chat.ask()
+        const resolved = resolveSlashInput(raw)
+        if (resolved === null) continue
+        text = resolved.trim()
       } catch (err) {
         if (isChatInterrupt(err)) {
           console.log('\n再见！\n')
@@ -160,14 +179,43 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
         break
       }
 
-      if (CONFIG_WORDS.has(text.toLowerCase())) {
+      const modelAction = parseModelManageQuery(text)
+      if (modelAction === 'list' || modelAction === 'help') {
+        printAiReply(modelAction === 'help' ? formatModelCommandsHelp() : formatModelsListReply())
+        continue
+      }
+      if (modelAction) {
         await withClackUi(chat, async () => {
-          const updated = await runAiConfigWizard(true)
+          let updated = null
+          switch (modelAction) {
+            case 'menu':
+              updated = await runConfigMenu()
+              break
+            case 'add':
+              updated = await runAddModel()
+              break
+            case 'switch':
+              updated = await runSwitchModel()
+              break
+            case 'delete':
+              updated = await runDeleteModel()
+              break
+          }
           if (updated) {
             session = createThemeChatSession()
-            printCurrentAiConfig()
+            onModelConfigUpdated()
           }
         })
+        continue
+      }
+
+      const quickSwitch = tryQuickModelSwitch(text)
+      if (quickSwitch) {
+        printLocalReply(quickSwitch.message)
+        if (quickSwitch.ok && !quickSwitch.message.includes('无需切换')) {
+          session = createThemeChatSession()
+          onModelConfigUpdated()
+        }
         continue
       }
 
@@ -207,7 +255,7 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
 
       const localReply = tryLocalInfoReply(text)
       if (localReply) {
-        printAiReply(localReply)
+        printLocalReply(localReply)
         continue
       }
 

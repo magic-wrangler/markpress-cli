@@ -196,34 +196,33 @@ async function runMdFirstPath(
   await withClackUi(chat, async () => mdFirstFlow(cwd, mdCandidates))
 }
 
-/** 路径 B：先选主题 JSON → 再选 md（多选）；与路径 A 互斥 */
-async function jsonFirstFlow(
+/** 路径 B：先选主题（内置 + 本地 JSON）→ 再选 md（多选） */
+async function themeFirstFlow(
   cwd: string,
-  jsonCandidates: string[],
-  preselectedJson?: string
+  preselectedTheme?: string
 ): Promise<void> {
-  let jsonName = preselectedJson
-  if (!jsonName) {
-    if (jsonCandidates.length === 0) {
-      p.log.warn('当前目录没有主题 JSON')
-      return
-    }
+  const themeOptions = buildThemeOptions(cwd)
+  if (themeOptions.length === 0) {
+    p.log.error('未找到可用主题')
+    return
+  }
+
+  let themeSelected = preselectedTheme
+  if (!themeSelected) {
     const sel = await p.select({
-      message: '选择主题 JSON',
-      options: jsonCandidates.map((name) => ({
-        value: name,
-        label: name,
-        hint: '下一步选择 Markdown',
-      })),
+      message: '选择主题（含内置与本地 JSON）',
+      options: themeOptions,
     })
     if (p.isCancel(sel)) {
       p.cancel('已取消')
       return
     }
-    jsonName = sel as string
+    themeSelected = sel as string
+  } else if (!themeSelected.startsWith('builtin:') && !themeSelected.startsWith('local:')) {
+    themeSelected = `local:${preselectedTheme}`
   }
 
-  const themeArg = `./${jsonName}`
+  const themeArg = resolveThemeSelection(themeSelected, cwd)
   const mdList = await promptMdMultiselect(
     cwd,
     listMdFiles(cwd),
@@ -234,13 +233,14 @@ async function jsonFirstFlow(
   await runBatchConvert(cwd, mdList, themeArg)
 }
 
-async function runJsonFirstPath(
+async function runThemeFirstPath(
   chat: ChatPrompt,
   cwd: string,
-  jsonCandidates: string[],
   preselectedJson?: string
 ): Promise<void> {
-  await withClackUi(chat, async () => jsonFirstFlow(cwd, jsonCandidates, preselectedJson))
+  await withClackUi(chat, async () =>
+    themeFirstFlow(cwd, preselectedJson ? `local:${preselectedJson}` : undefined)
+  )
 }
 
 export interface ConvertWizardOptions {
@@ -305,7 +305,7 @@ export async function runAtFilePicker(
 
   // 筛选结果唯一：直接进入对应路径
   if (needle && jsonFiles.length === 1 && mdFiles.length === 0) {
-    await runJsonFirstPath(chat, cwd, jsonFiles, jsonFiles[0])
+    await runThemeFirstPath(chat, cwd, jsonFiles[0])
     return
   }
   if (needle && mdFiles.length > 0 && jsonFiles.length === 0) {
@@ -327,14 +327,14 @@ export async function runAtFilePicker(
       modeOptions.push({
         value: 'md',
         label: '选择 Markdown',
-        hint: '可多选，再选主题（不可与 JSON 混选）',
+        hint: '可多选，再选主题（含内置与本地 JSON）',
       })
     }
     if (jsonFiles.length > 0) {
       modeOptions.push({
-        value: 'json',
-        label: '先选主题 JSON',
-        hint: '再选 Markdown（可多选，不可与上项混选）',
+        value: 'theme',
+        label: '先选主题',
+        hint: '内置或本地 JSON，再选 Markdown',
       })
     }
 
@@ -345,8 +345,8 @@ export async function runAtFilePicker(
         if (copied) await mdFirstFlow(cwd, [copied])
       } else if (only === 'md') {
         await mdFirstFlow(cwd, listMdFiles(cwd))
-      } else {
-        await jsonFirstFlow(cwd, jsonFiles)
+      } else if (only === 'theme') {
+        await themeFirstFlow(cwd)
       }
       return
     }
@@ -365,8 +365,8 @@ export async function runAtFilePicker(
       if (copied) await mdFirstFlow(cwd, [copied])
     } else if (mode === 'md') {
       await mdFirstFlow(cwd, mdFiles.length > 0 ? mdFiles : listMdFiles(cwd))
-    } else if (mode === 'json') {
-      await jsonFirstFlow(cwd, jsonFiles)
+    } else if (mode === 'theme') {
+      await themeFirstFlow(cwd)
     }
   })
 }

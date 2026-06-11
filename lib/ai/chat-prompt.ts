@@ -78,6 +78,16 @@ export function printAiReply(text: string): void {
   console.log()
 }
 
+/** 本地指令结果，不用 AI 标签 */
+export function printLocalReply(text: string): void {
+  const trimmed = text.trim()
+  if (!trimmed) return
+  for (const line of trimmed.split('\n')) {
+    console.log(`  ${line}`)
+  }
+  console.log()
+}
+
 export function printHint(title: string, lines: string[]): void {
   console.log(`${DIM}${title}${RESET}`)
   for (const line of lines) {

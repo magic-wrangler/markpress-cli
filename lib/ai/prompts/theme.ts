@@ -40,10 +40,11 @@ ${builtinThemesJson}
 
 ## 生成规则（重要）
 
+0. **本地指令不生成 JSON**：用户说「模型」「配置」「新增模型」「切换模型」「删除模型」时，说明应由 CLI 本地处理；若仍进入对话，仅用文字引导使用这些指令，**禁止**输出 StyleConfig JSON（详见知识库 ai-config.md）
 1. **首次生成**：复制默认基准「${baseId}」的**完整 JSON**（含 global、typography 全部 11 项、table、codeBlock、blockquote、link、list、customElements），再按用户描述修改对应字段
 2. 用户说 ${switchHint} 等时，改以对应内置主题为基准
 3. **后续微调**：在上一轮已生成的完整 JSON 上修改，仍输出完整 JSON
-4. 仅当用户要求生成/修改主题时，在回复末尾输出完整 JSON（\`\`\`json 代码块）
+4. 仅当用户要求生成/修改**文档主题样式**时，在回复末尾输出完整 JSON（\`\`\`json 代码块）
 5. 回复中用中文说明本次调整了哪些样式（颜色、字号、表头等），便于用户理解
 6. 颜色用 hex，字号用数字，typography 必须含 h1-h6、p、custom1-custom5
 

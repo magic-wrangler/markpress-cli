@@ -3,14 +3,15 @@ import {
   DEFAULT_BASE_URL,
   DEFAULT_MODEL,
   DEFAULT_TEMPERATURE,
-  DEEPSEEK_MODELS,
   getAiConfigPath,
   isDeprecatedModel,
   loadAiConfigFile,
   maskApiKey,
+  normalizeSavedModels,
   saveAiConfigFile,
   type DeepSeekFileConfig,
 } from './user-config.ts'
+import { promptPickModel } from './model-prompts.ts'
 
 async function promptApiKey(existing?: string): Promise<string | symbol> {
   if (existing) {
@@ -30,18 +31,6 @@ async function promptApiKey(existing?: string): Promise<string | symbol> {
       if (!value?.trim()) return '请输入 API 密钥'
       if (!value.trim().startsWith('sk-')) return '密钥通常以 sk- 开头，请确认是否正确'
     },
-  })
-}
-
-async function promptModel(current?: string): Promise<string | symbol> {
-  return p.select({
-    message: '选择模型',
-    initialValue: current || DEFAULT_MODEL,
-    options: DEEPSEEK_MODELS.map((m) => ({
-      value: m.value,
-      label: m.label,
-      hint: m.hint,
-    })),
   })
 }
 
@@ -84,11 +73,13 @@ export async function runAiConfigWizard(force = false): Promise<DeepSeekFileConf
     return null
   }
 
-  const model = await promptModel(existing?.model)
+  const model = await promptPickModel('选择模型', existing?.model)
   if (p.isCancel(model)) {
     p.cancel('已取消配置')
     return null
   }
+
+  const modelName = (model as string).trim()
 
   const baseUrl = await promptBaseUrl(existing?.baseUrl)
   if (p.isCancel(baseUrl)) {
@@ -104,9 +95,10 @@ export async function runAiConfigWizard(force = false): Promise<DeepSeekFileConf
 
   const config: DeepSeekFileConfig = {
     apiKey: (apiKey as string).trim(),
-    model: model as string,
+    model: modelName,
     baseUrl: ((baseUrl as string).trim() || DEFAULT_BASE_URL).replace(/\/$/, ''),
     temperature: parseFloat(temperature as string),
+    savedModels: normalizeSavedModels(modelName, existing?.savedModels),
   }
 
   const save = await p.confirm({
@@ -143,6 +135,13 @@ export function printCurrentAiConfig(): void {
   if (file) {
     p.log.info(`API 密钥：配置文件（${maskApiKey(file.deepseek.apiKey)}）`)
     p.log.info(`模型：${file.deepseek.model}`)
+    const saved = file.deepseek.savedModels
+    if (saved && saved.length > 1) {
+      const numbered = saved
+        .map((name, i) => (name === file.deepseek.model ? `${i + 1}:${name}*` : `${i + 1}:${name}`))
+        .join(' · ')
+      p.log.info(`已保存 ${saved.length} 个：${numbered}（输入 模型使用1 快速切换）`)
+    }
     if (isDeprecatedModel(file.deepseek.model)) {
       p.log.warn(`${file.deepseek.model} 将于 2026/07/24 弃用，可输入「配置」或运行 mpr ai config 升级模型`)
     }

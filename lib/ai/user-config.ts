@@ -7,6 +7,8 @@ export interface DeepSeekFileConfig {
   model: string
   baseUrl: string
   temperature: number
+  /** 用户保存的常用模型列表；当前使用 model 字段 */
+  savedModels?: string[]
 }
 
 export interface AiConfigFile {
@@ -29,6 +31,19 @@ export const DEEPSEEK_MODELS = [
   { value: 'deepseek-reasoner', label: 'deepseek-reasoner', hint: '将于 2026/07/24 弃用' },
 ] as const
 
+export const CUSTOM_MODEL_VALUE = '__custom__'
+
+export function isPresetModel(model: string): boolean {
+  return DEEPSEEK_MODELS.some((m) => m.value === model)
+}
+
+/** 合并 savedModels，确保当前 model 在列表中且去重 */
+export function normalizeSavedModels(model: string, saved?: string[]): string[] {
+  const list = (saved ?? []).map((s) => s.trim()).filter(Boolean)
+  if (model && !list.includes(model)) list.unshift(model)
+  return [...new Set(list)]
+}
+
 const DEPRECATED_MODELS = new Set(['deepseek-chat', 'deepseek-reasoner'])
 
 export function isDeprecatedModel(model: string): boolean {
@@ -45,16 +60,24 @@ export function loadAiConfigFile(): AiConfigFile | null {
     const raw = readFileSync(CONFIG_PATH, 'utf-8')
     const parsed = JSON.parse(raw) as Partial<AiConfigFile>
     if (!parsed.deepseek?.apiKey?.trim()) return null
+    const model = parsed.deepseek.model?.trim() || DEFAULT_MODEL
+    const savedModels = normalizeSavedModels(
+      model,
+      Array.isArray(parsed.deepseek.savedModels)
+        ? parsed.deepseek.savedModels.map(String)
+        : undefined
+    )
     return {
       provider: 'deepseek',
       deepseek: {
         apiKey: parsed.deepseek.apiKey.trim(),
-        model: parsed.deepseek.model?.trim() || DEFAULT_MODEL,
+        model,
         baseUrl: (parsed.deepseek.baseUrl?.trim() || DEFAULT_BASE_URL).replace(/\/$/, ''),
         temperature:
           typeof parsed.deepseek.temperature === 'number'
             ? parsed.deepseek.temperature
             : DEFAULT_TEMPERATURE,
+        savedModels,
       },
     }
   } catch {
@@ -64,7 +87,11 @@ export function loadAiConfigFile(): AiConfigFile | null {
 
 export function saveAiConfigFile(config: DeepSeekFileConfig): void {
   mkdirSync(CONFIG_DIR, { recursive: true })
-  const data: AiConfigFile = { provider: 'deepseek', deepseek: config }
+  const savedModels = normalizeSavedModels(config.model, config.savedModels)
+  const data: AiConfigFile = {
+    provider: 'deepseek',
+    deepseek: { ...config, savedModels },
+  }
   writeFileSync(CONFIG_PATH, JSON.stringify(data, null, 2), 'utf-8')
   try {
     chmodSync(CONFIG_PATH, 0o600)

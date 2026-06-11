@@ -1,4 +1,5 @@
 import { listBuiltinThemes } from '../theme-resolver.ts'
+import { formatModelsListReply, formatModelCommandsHelp } from './model-manager.ts'
 
 /** 识别「查看内置主题」类问题，本地回答，不走 AI */
 export function isBuiltinThemesQuery(text: string): boolean {
@@ -47,7 +48,10 @@ export function isConvertHelpQuery(text: string): boolean {
 }
 
 function normalizeQuery(text: string): string {
-  return text.trim().replace(/[？?！!。.\s]+$/g, '')
+  return text
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/[？?！!。.\s]+$/g, '')
 }
 
 export function formatBuiltinThemesReply(): string {
@@ -116,12 +120,55 @@ export function isConvertRequestQuery(text: string): boolean {
 
 /** 是否为纯信息/操作查询（不走 AI 或不应要求 JSON） */
 export function isInfoQuery(text: string): boolean {
-  return isBuiltinThemesQuery(text) || isConvertHelpQuery(text) || isConvertRequestQuery(text)
+  return (
+    isBuiltinThemesQuery(text) ||
+    isConvertHelpQuery(text) ||
+    isConvertRequestQuery(text) ||
+    parseModelManageQuery(text) !== null
+  )
+}
+
+/** 识别模型管理指令（指定命令见 MODEL_COMMANDS） */
+export function parseModelManageQuery(
+  text: string
+): 'list' | 'add' | 'switch' | 'delete' | 'menu' | 'help' | null {
+  const t = normalizeQuery(text).toLowerCase()
+
+  if (/^(配置|config|设置)$/.test(t)) return 'menu'
+
+  const patterns: Array<{ re: RegExp; action: 'list' | 'add' | 'switch' | 'delete' | 'help' }> = [
+    // 指定命令（推荐）
+    { re: /^模型列表$/, action: 'list' },
+    { re: /^模型新增$/, action: 'add' },
+    { re: /^模型修改$/, action: 'switch' },
+    { re: /^模型删除$/, action: 'delete' },
+    { re: /^模型帮助$/, action: 'help' },
+    { re: /^model\s+list$/i, action: 'list' },
+    { re: /^model\s+add$/i, action: 'add' },
+    { re: /^model\s+switch$/i, action: 'switch' },
+    { re: /^model\s+delete$/i, action: 'delete' },
+    { re: /^model\s+help$/i, action: 'help' },
+    // 兼容别名
+    { re: /^(查看模型|当前模型|models?)$/, action: 'list' },
+    { re: /^模型$/, action: 'list' },
+    { re: /^(新增|添加)\s*模型$/, action: 'add' },
+    { re: /^(修改|切换|更换)\s*模型$/, action: 'switch' },
+    { re: /^(删除|移除)\s*模型$/, action: 'delete' },
+  ]
+
+  for (const { re, action } of patterns) {
+    if (re.test(t)) return action
+  }
+
+  return null
 }
 
 /** 本地可回答的信息类问题 */
 export function tryLocalInfoReply(text: string): string | null {
   if (isBuiltinThemesQuery(text)) return formatBuiltinThemesReply()
   if (isConvertHelpQuery(text)) return formatConvertHelpReply()
+  const modelAction = parseModelManageQuery(text)
+  if (modelAction === 'list') return formatModelsListReply()
+  if (modelAction === 'help') return formatModelCommandsHelp()
   return null
 }
