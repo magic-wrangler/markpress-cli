@@ -7,12 +7,14 @@ import { join, resolve, basename, extname } from 'node:path'
 import * as p from '@clack/prompts'
 import { runConvert, isValidThemeFile } from '../lib/convert-core.ts'
 import { listBuiltinThemes } from '../lib/theme-resolver.ts'
+import { runTemplateCopy } from './template.mts'
 import { parseConvertArgs } from '../lib/parse-args.ts'
-import { isContentMarkdown } from '../lib/scan-filters.ts'
+import { scanMarkdownDocuments } from '../lib/document-scan.ts'
 
 export interface InteractiveOptions {
   inputDir?: string
   outputDir?: string
+  skipIntro?: boolean
 }
 
 function getDirs(opts: InteractiveOptions) {
@@ -53,14 +55,24 @@ function resolveThemeSelection(selected: string, inputDir: string): string {
 async function runSession(inputDir: string, outputDir: string): Promise<boolean> {
   mkdirSync(outputDir, { recursive: true })
 
-  const mdNames = listFiles(inputDir, '.md').filter(isContentMarkdown)
+  const mdNames = scanMarkdownDocuments(inputDir).map((f) => f.relativePath)
   const localThemeNames = listFiles(inputDir, '.json').filter((name) =>
     isValidThemeFile(join(inputDir, name))
   )
   const builtinThemes = listBuiltinThemes()
 
   if (mdNames.length === 0) {
-    p.log.error(`未找到 Markdown，请将 .md 放入：${inputDir}`)
+    p.log.warn(`未找到可转换的 Markdown：${inputDir}`)
+    p.log.info('会扫描 docs/ 等子目录；无 md 时输入 @ 可选内置模板')
+    const copy = await p.confirm({
+      message: '是否复制内置「转换模板.md」到当前目录？',
+    })
+    if (!p.isCancel(copy) && copy) {
+      const dest = await runTemplateCopy(inputDir, '转换模板', undefined, true)
+      if (dest) {
+        p.log.info(`已复制，编辑 ${dest} 后重新运行 mpr`)
+      }
+    }
     return false
   }
 
@@ -171,14 +183,16 @@ async function runSession(inputDir: string, outputDir: string): Promise<boolean>
   return fail === 0
 }
 
-export async function runInteractive(argv: string[] = []): Promise<void> {
+export async function runInteractive(argv: string[] = [], opts: InteractiveOptions = {}): Promise<void> {
   const { inputDir: argInput, outputDir: argOutput } = parseConvertArgs(argv)
   const { inputDir, outputDir } = getDirs({
-    inputDir: argInput || undefined,
-    outputDir: argOutput || undefined,
+    inputDir: argInput || opts.inputDir || undefined,
+    outputDir: argOutput || opts.outputDir || undefined,
   })
 
-  p.intro('Markpress · Markdown 主题转 HTML')
+  if (!opts.skipIntro) {
+    p.intro('Markpress · Markdown 主题转 HTML')
+  }
   p.log.info(`文档目录：${inputDir}`)
   p.log.info(`输出目录：${outputDir}`)
 

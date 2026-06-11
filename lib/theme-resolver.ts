@@ -13,6 +13,7 @@ interface ThemeManifestEntry {
   id: string
   label: string
   description: string
+  aliases?: string[]
 }
 
 let cachedPackageRoot: string | null = null
@@ -32,6 +33,11 @@ function loadManifest(): ThemeManifestEntry[] {
   return JSON.parse(readFileSync(manifestPath, 'utf-8')) as ThemeManifestEntry[]
 }
 
+function manifestEntryMatchesId(entry: ThemeManifestEntry, themeId: string): boolean {
+  if (entry.id === themeId) return true
+  return entry.aliases?.includes(themeId) ?? false
+}
+
 export function listBuiltinThemes(): BuiltinTheme[] {
   const themesDir = join(getPackageRoot(), 'themes')
   return loadManifest()
@@ -44,8 +50,36 @@ export function listBuiltinThemes(): BuiltinTheme[] {
     .filter((t) => existsSync(t.filePath))
 }
 
+function findManifestEntry(themeId: string): ThemeManifestEntry | undefined {
+  return loadManifest().find((entry) => manifestEntryMatchesId(entry, themeId))
+}
+
+/** 将主题 id 或别名解析为 manifest 中的 canonical id */
+export function resolveBuiltinThemeId(name: string): string | null {
+  return findManifestEntry(name)?.id ?? null
+}
+
+export function listManifestThemeLookup(): { id: string; names: string[] }[] {
+  const themesDir = join(getPackageRoot(), 'themes')
+  return loadManifest()
+    .filter((entry) => existsSync(join(themesDir, `${entry.id}.json`)))
+    .map((entry) => ({
+      id: entry.id,
+      names: [entry.id, ...(entry.aliases ?? [])],
+    }))
+}
+
 function findBuiltinById(id: string): BuiltinTheme | undefined {
-  return listBuiltinThemes().find((t) => t.id === id)
+  const entry = findManifestEntry(id)
+  if (!entry) return undefined
+  const filePath = join(getPackageRoot(), 'themes', `${entry.id}.json`)
+  if (!existsSync(filePath)) return undefined
+  return {
+    id: entry.id,
+    label: entry.label,
+    description: entry.description,
+    filePath,
+  }
 }
 
 /**
@@ -66,7 +100,13 @@ export function resolveThemePath(themeArg: string, cwd = process.cwd()): string 
   }
 
   const builtin = findBuiltinById(id)
-  if (builtin && (trimmed === id || trimmed === `builtin:${id}`)) {
+  if (
+    builtin &&
+    (trimmed === id ||
+      trimmed === `builtin:${id}` ||
+      trimmed === builtin.id ||
+      trimmed === `builtin:${builtin.id}`)
+  ) {
     return builtin.filePath
   }
 

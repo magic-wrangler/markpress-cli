@@ -1,12 +1,19 @@
 [
   {
-    "id": "有底色",
-    "label": "有底色（表头深蓝）",
-    "description": "适用于正式文档、赛事规则"
+    "id": "RULE_蓝色底",
+    "label": "RULE_蓝色底（表头深蓝）",
+    "description": "适用于规则协议",
+    "aliases": ["有底色"]
   },
   {
-    "id": "无底色",
-    "label": "无底色（简洁白底）",
-    "description": "适用于简洁排版"
+    "id": "RULE_无底色",
+    "label": "RULE_无底色（简洁白底）",
+    "description": "适用于规则协议",
+    "aliases": ["无底色"]
+  },
+  {
+    "id": "正式版",
+    "label": "正式版（白底标准标题）",
+    "description": "白底深字，h1–h6 按在线文档标准递减，适合正式文档"
   }
 ]

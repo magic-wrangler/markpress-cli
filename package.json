@@ -4,11 +4,14 @@
   "description": "Markdown + 主题 JSON → 带样式 HTML 转换工具",
   "type": "module",
   "bin": {
-    "markpress": "./dist/cli.mjs"
+    "markpress": "./dist/cli.mjs",
+    "mpr": "./dist/cli.mjs"
   },
   "files": [
     "dist",
-    "themes"
+    "themes",
+    "templates",
+    "knowledge"
   ],
   "engines": {
     "node": ">=18"
@@ -17,6 +20,7 @@
     "build": "tsup",
     "convert": "tsx scripts/cli.mts convert",
     "convert:interactive": "tsx scripts/cli.mts interactive",
+    "ai": "tsx scripts/cli.mts ai",
     "dev:cli": "tsx scripts/cli.mts",
     "prepublishOnly": "pnpm build"
   },

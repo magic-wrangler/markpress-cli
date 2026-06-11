@@ -34,20 +34,27 @@ export function setupBrowserGlobals(): void {
   globalsReady = true
 }
 
+/** 判断对象是否为完整 StyleConfig 主题 */
+export function validateStyleConfigObject(parsed: unknown): parsed is StyleConfig {
+  if (!parsed || typeof parsed !== 'object') return false
+  const obj = parsed as Partial<StyleConfig>
+  return !!(
+    obj.global &&
+    obj.typography &&
+    obj.table &&
+    obj.codeBlock &&
+    obj.blockquote &&
+    obj.link &&
+    obj.list
+  )
+}
+
 /** 判断 JSON 文件是否为 StyleConfig 主题（用于交互列表过滤） */
 export function isValidThemeFile(themePath: string): boolean {
   try {
     const raw = readFileSync(themePath, 'utf-8')
-    const parsed = JSON.parse(raw) as Partial<StyleConfig>
-    return !!(
-      parsed.global &&
-      parsed.typography &&
-      parsed.table &&
-      parsed.codeBlock &&
-      parsed.blockquote &&
-      parsed.link &&
-      parsed.list
-    )
+    const parsed = JSON.parse(raw) as unknown
+    return validateStyleConfigObject(parsed)
   } catch {
     return false
   }

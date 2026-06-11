@@ -1,0 +1,127 @@
+import { listBuiltinThemes } from '../theme-resolver.ts'
+
+/** 识别「查看内置主题」类问题，本地回答，不走 AI */
+export function isBuiltinThemesQuery(text: string): boolean {
+  const t = normalizeQuery(text)
+  if (!t) return false
+
+  const patterns = [
+    /^内置主题$/,
+    /内置主题/,
+    /有什么主题/,
+    /有哪些主题/,
+    /列出.*主题/,
+    /主题列表/,
+    /themes\s+list$/i,
+    /^list\s+themes$/i,
+  ]
+
+  return patterns.some((p) => p.test(t))
+}
+
+/** 识别「如何转换 / 怎么用」类问题 */
+export function isConvertHelpQuery(text: string): boolean {
+  const t = normalizeQuery(text)
+  if (!t) return false
+
+  const patterns = [
+    /如何转换/,
+    /怎么转换/,
+    /怎样转换/,
+    /如何转成/,
+    /怎么转成/,
+    /怎么生成html/i,
+    /如何生成html/i,
+    /convert.*怎么用/i,
+    /怎么用.*convert/i,
+    /^转换$/,
+    /^怎么用$/,
+    /^如何使用$/,
+    /^怎么使用$/,
+    /使用说明/,
+    /帮助$/,
+    /^help$/i,
+  ]
+
+  return patterns.some((p) => p.test(t))
+}
+
+function normalizeQuery(text: string): string {
+  return text.trim().replace(/[？?！!。.\s]+$/g, '')
+}
+
+export function formatBuiltinThemesReply(): string {
+  const themes = listBuiltinThemes()
+  if (themes.length === 0) {
+    return '当前没有可用的内置主题。'
+  }
+
+  const lines = ['Markpress 内置主题：', '']
+  for (const t of themes) {
+    lines.push(`· ${t.id}`)
+    lines.push(`  ${t.label}`)
+    lines.push(`  ${t.description}`)
+    lines.push(`  试用：convert --md 协议.md --theme ${t.id}`)
+    lines.push('')
+  }
+  lines.push('描述风格可让 AI 以内置主题为基准生成自定义 JSON；输入「保存」写入文件。')
+  return lines.join('\n')
+}
+
+export function formatConvertHelpReply(): string {
+  const themes = listBuiltinThemes().map((t) => t.id).join('、') || '有底色、无底色'
+
+  return [
+    'Markpress 转换 Markdown → 带样式 HTML：',
+    '',
+    '1. 交互转换（推荐）',
+    '   mpr',
+    '   → 选择主题 → 多选 .md 文件 → 输出到 ./output/',
+    '',
+    '2. 命令行转换',
+    '   mpr convert --md 协议.md --theme 有底色 --out output/协议.html',
+    '',
+    '3. 使用 AI 生成的主题',
+    '   mpr convert --md 协议.md --theme ./我的主题.json',
+    '',
+    '4. 在本对话中直接粘贴',
+    '   convert --md 协议.md --theme ./我的主题.json',
+    '',
+    `内置主题可直接使用：${themes}`,
+    '输入「内置主题」查看详情；描述风格可 AI 生成新主题。',
+  ].join('\n')
+}
+
+/** 识别「帮我转换」类请求，走本地向导 */
+export function isConvertRequestQuery(text: string): boolean {
+  const t = normalizeQuery(text)
+  if (!t) return false
+
+  const patterns = [
+    /帮我转换/,
+    /帮忙转换/,
+    /帮我转/,
+    /帮忙转/,
+    /我要转换/,
+    /我要转/,
+    /转换一下/,
+    /能帮我转/,
+    /可以帮我转/,
+    /请帮我转/,
+    /^转换吧$/,
+  ]
+
+  return patterns.some((p) => p.test(t))
+}
+
+/** 是否为纯信息/操作查询（不走 AI 或不应要求 JSON） */
+export function isInfoQuery(text: string): boolean {
+  return isBuiltinThemesQuery(text) || isConvertHelpQuery(text) || isConvertRequestQuery(text)
+}
+
+/** 本地可回答的信息类问题 */
+export function tryLocalInfoReply(text: string): string | null {
+  if (isBuiltinThemesQuery(text)) return formatBuiltinThemesReply()
+  if (isConvertHelpQuery(text)) return formatConvertHelpReply()
+  return null
+}
