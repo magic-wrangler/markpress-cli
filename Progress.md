@@ -1,6 +1,6 @@
 # 项目进度记录
 
-> 最后更新：2026-06-11 19:00
+> 最后更新：2026-06-11 20:00
 > 维护者：Progress Recorder 子代理
 
 ## 约束决策
@@ -34,7 +34,7 @@
 | T004 | archived | 新增 cli.mts 子命令与 tsup 构建 · 已归档至 ARCH-20260611-1600 | 2026-06-09 |
 | T005 | archived | 内置 themes/ 与交互/CLI 双模式主题选择 · 已归档至 ARCH-20260611-1600 | 2026-06-09 |
 | T006 | archived | 同步 Skill 副本与使用说明 · 已归档至 ARCH-20260611-1600 | 2026-06-09 |
-| T007 | pending | npm link 验证与 publish（需用户 npm 登录后执行） | 2026-06-09 |
+| T007 | completed | npm link 验证与 publish（需用户 npm 登录后执行） | 2026-06-09 |
 | T008 | archived | DeepSeek AI 对话创建主题 JSON（`mpr ai` / `lib/ai/`） · 已归档至 ARCH-20260611-1600 | 2026-06-11 |
 | T009 | archived | AI 交互 UI：紧凑 spinner、无 clack 框线占用 stdin、Ctrl+C + AbortSignal 可退出 · 已归档至 ARCH-20260611-1600 | 2026-06-11 |
 | T010 | archived | AI 本地指令：内置主题 / 如何转换 / 帮我转换；`@` 文件选择；粘贴 convert 命令直接转换 · 已归档至 ARCH-20260611-1600 | 2026-06-11 |

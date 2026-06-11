@@ -1,7 +1,7 @@
 {
   "name": "markpress-cli",
-  "version": "1.0.0",
-  "description": "Markdown + 主题 JSON → 带样式 HTML 转换工具",
+  "version": "1.1.1",
+  "description": "Markdown 转带样式 HTML，支持 AI 对话创建主题 JSON",
   "type": "module",
   "bin": {
     "markpress": "./dist/cli.mjs",
@@ -29,7 +29,9 @@
     "html",
     "converter",
     "cli",
-    "markpress"
+    "markpress",
+    "theme",
+    "ai"
   ],
   "license": "MIT",
   "dependencies": {
