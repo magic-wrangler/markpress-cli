@@ -13,6 +13,11 @@ import { runInteractive } from './convert-interactive.mts'
 import { runDefaultInteractive } from './startup-menu.mts'
 import { runThemeAi } from './theme-ai.mts'
 import { runTemplateCli } from './template.mts'
+import { printVersion } from '../lib/version.ts'
+
+function isVersionFlag(arg: string): boolean {
+  return arg === '-v' || arg === '-V' || arg === '-version' || arg === '--version' || arg === 'version'
+}
 
 function printHelp() {
   console.log(`markpress-cli — Markdown + 主题 JSON → 带样式 HTML
@@ -26,6 +31,7 @@ function printHelp() {
   mpr template list                  列出内置模板
   mpr themes list                    列出内置主题
   mpr --help                         显示帮助
+  mpr -v / -version                  显示版本号
 
 内置主题: RULE_蓝色底、RULE_无底色、正式版（别名：有底色、无底色）
 
@@ -67,6 +73,11 @@ async function main() {
   }
 
   const cmd = argv[0]
+
+  if (isVersionFlag(cmd)) {
+    printVersion()
+    return
+  }
 
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     printHelp()
