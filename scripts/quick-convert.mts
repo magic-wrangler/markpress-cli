@@ -13,8 +13,9 @@ export function printQuickConvertHelp() {
   console.log(`markpress c（快速转换）
 
 用法:
-  mpr c                              交互：选 md（可全选）→ 选主题 → 转换
+  mpr c / mpr ai -c                  交互：选 md（可全选）→ 选主题 → 转换
   mpr c --all -t <主题>              当前目录全部 md 直接转换（无交互）
+  mpr -c                             同上（-c 为 c 的简写）
   mpr ai -c                          同上（不进 AI 对话）
   mpr ai --convert                   同上
 

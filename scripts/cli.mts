@@ -20,12 +20,16 @@ function isVersionFlag(arg: string): boolean {
   return arg === '-v' || arg === '-V' || arg === '-version' || arg === '--version' || arg === 'version'
 }
 
+function isQuickConvertFlag(arg: string): boolean {
+  return arg === '-c' || arg === '--convert'
+}
+
 function printHelp() {
   console.log(`markpress-cli — Markdown + 主题 JSON → 带样式 HTML
 
 用法:
   mpr / markpress                    交互式批量转换（Windows 用 mpr，mp 与 PowerShell 冲突）
-  mpr c                              快速转换（选 md → 主题，等同 mpr ai -c）
+  mpr c / mpr -c                     快速转换（选 md → 主题）
   mpr ai                             AI 对话创建主题（DeepSeek）
   mpr ai -c / mpr ai --convert       快速转换（不进 AI 对话）
   mpr ai config                      配置 API 密钥、模型等
@@ -39,8 +43,8 @@ function printHelp() {
 内置主题: RULE_蓝色底、RULE_无底色、正式版（别名：有底色、无底色）
 
 示例:
-  mpr c                              # 交互选文件 + 主题
-  mpr c --all -t 正式版              # 当前目录全部 md 一键转换
+  mpr c / mpr -c                     # 交互选文件 + 主题
+  mpr -c --all -t 正式版             # 当前目录全部 md 一键转换
   mpr convert --md 协议.md --theme 有底色 --out output/协议.html
   mpr template                       # 复制 转换模板.md 到当前目录
   mpr ai
@@ -86,6 +90,11 @@ async function main() {
 
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     printHelp()
+    return
+  }
+
+  if (isQuickConvertFlag(cmd)) {
+    await runQuickConvert(argv.slice(1))
     return
   }
 
