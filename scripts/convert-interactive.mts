@@ -6,10 +6,12 @@ import { readdirSync, existsSync, mkdirSync } from 'node:fs'
 import { join, resolve, basename, extname } from 'node:path'
 import * as p from '@clack/prompts'
 import { runConvert, isValidThemeFile } from '../lib/convert-core.ts'
+import { shouldAiFixOnConvert } from '../lib/convert-ai-fix.ts'
 import { listBuiltinThemes } from '../lib/theme-resolver.ts'
 import { runTemplateCopy } from './template.mts'
 import { parseConvertArgs } from '../lib/parse-args.ts'
 import { scanMarkdownDocuments } from '../lib/document-scan.ts'
+import { promptMarkdownMultiselect } from '../lib/md-multiselect.ts'
 
 export interface InteractiveOptions {
   inputDir?: string
@@ -103,25 +105,16 @@ async function runSession(inputDir: string, outputDir: string): Promise<boolean>
     return false
   }
 
-  const mdSelected = await p.multiselect({
-    message: '选择 Markdown 文件（空格切换，Enter 确认）',
-    options: mdNames.map((name) => {
-      const outName = htmlNameForMd(name)
-      const willOverwrite = existsSync(outputPathForMd(outputDir, name))
-      return {
-        value: name,
-        label: name,
-        hint: willOverwrite ? `将覆盖 output/${outName}` : undefined,
-      }
-    }),
-    required: true,
-  })
-  if (p.isCancel(mdSelected)) {
+  const mdSelected = await promptMarkdownMultiselect(
+    mdNames,
+    { message: '选择 Markdown 文件（空格切换，Enter 确认）' }
+  )
+  if (!mdSelected) {
     p.cancel('已取消')
     return false
   }
 
-  const mdList = mdSelected as string[]
+  const mdList = mdSelected
   const themeArg = resolveThemeSelection(themeSelected as string, inputDir)
 
   p.log.info(`主题：${themeArg}`)
@@ -150,20 +143,41 @@ async function runSession(inputDir: string, outputDir: string): Promise<boolean>
     const mdPath = join(inputDir, mdName)
     const outName = htmlNameForMd(mdName)
     const outPath = outputPathForMd(outputDir, mdName)
-    const spin = p.spinner()
+    const useAi = shouldAiFixOnConvert()
 
-    spin.start(`转换 ${mdName} → ${outName}`)
     try {
-      await runConvert({
-        md: mdPath,
-        theme: themeArg,
-        out: outPath,
-        cwd: inputDir,
-      })
-      spin.stop(`完成 ${outName}`)
+      if (useAi) {
+        console.log(`\n· ${mdName}`)
+        const result = await runConvert({
+          md: mdPath,
+          theme: themeArg,
+          out: outPath,
+          cwd: inputDir,
+          showFixDiff: true,
+        })
+        if (result.mdWrittenBack) {
+          console.log(`  已写回 ${mdName}`)
+        }
+        console.log(`✓ 完成 ${outName}\n`)
+      } else {
+        const spin = p.spinner()
+        spin.start(`转换 ${mdName} → ${outName}`)
+        try {
+          const result = await runConvert({
+            md: mdPath,
+            theme: themeArg,
+            out: outPath,
+            cwd: inputDir,
+            showFixDiff: false,
+          })
+          spin.stop(result.mdWrittenBack ? `完成 ${outName}（已写回 md）` : `完成 ${outName}`)
+        } catch (err) {
+          spin.stop(`失败 ${outName}`)
+          throw err
+        }
+      }
       ok++
     } catch (err) {
-      spin.stop(`失败 ${outName}`)
       p.log.error(err instanceof Error ? err.message : String(err))
       fail++
     }

@@ -1,6 +1,7 @@
 import { readdirSync, existsSync, mkdirSync } from 'node:fs'
 import { join, resolve, basename, extname } from 'node:path'
 import * as p from '@clack/prompts'
+import { shouldAiFixOnConvert, describeConvertAiFixStatus } from '../convert-ai-fix.ts'
 import { runConvert, isValidThemeFile } from '../convert-core.ts'
 import { listBuiltinThemes } from '../theme-resolver.ts'
 import {
@@ -13,6 +14,7 @@ import {
   DEFAULT_TEMPLATE_ID,
   findBuiltinTemplate,
 } from '../builtin-templates.ts'
+import { promptMarkdownMultiselect } from '../md-multiselect.ts'
 import { withClackUi, printStatus } from './chat-prompt.ts'
 import type { ChatPrompt } from './chat-prompt.ts'
 
@@ -88,9 +90,8 @@ async function copyDefaultTemplateToCwd(cwd: string): Promise<string | null> {
 }
 
 async function promptMdMultiselect(
-  cwd: string,
   candidates: string[],
-  message = '选择 Markdown（空格多选，回车确认）'
+  message = '选择 Markdown（空格多选，Enter 确认）'
 ): Promise<string[] | null> {
   if (candidates.length === 0) {
     p.log.warn('没有可选的 Markdown 文件')
@@ -98,16 +99,7 @@ async function promptMdMultiselect(
     return null
   }
 
-  const selected = await p.multiselect({
-    message,
-    options: candidates.map((name) => ({ value: name, label: name })),
-    required: true,
-  })
-  if (p.isCancel(selected)) {
-    p.cancel('已取消')
-    return null
-  }
-  return selected as string[]
+  return promptMarkdownMultiselect(candidates, { message })
 }
 
 async function runBatchConvert(
@@ -120,6 +112,10 @@ async function runBatchConvert(
 
   p.log.info(`主题：${themeArg}`)
   p.log.info(`将转换 ${mdList.length} 个文件 → ${outputDir}`)
+  const aiFixHint = describeConvertAiFixStatus()
+  if (aiFixHint) {
+    p.log.info(aiFixHint)
+  }
 
   const toOverwrite = mdList.filter((name) => existsSync(outputPathForMd(outputDir, name)))
   if (toOverwrite.length > 0) {
@@ -140,19 +136,41 @@ async function runBatchConvert(
   for (const mdName of mdList) {
     const outName = htmlNameForMd(mdName)
     const outPath = outputPathForMd(outputDir, mdName)
-    const spin = p.spinner()
-    spin.start(`转换 ${mdName} → ${outName}`)
+    const useAi = shouldAiFixOnConvert()
+
     try {
-      await runConvert({
-        md: mdName,
-        theme: themeArg,
-        out: outPath,
-        cwd,
-      })
-      spin.stop(`完成 ${outName}`)
+      if (useAi) {
+        console.log(`\n· ${mdName}`)
+        const result = await runConvert({
+          md: mdName,
+          theme: themeArg,
+          out: outPath,
+          cwd,
+          showFixDiff: true,
+        })
+        if (result.mdWrittenBack) {
+          console.log(`  已写回 ${mdName}`)
+        }
+        console.log(`✓ 完成 ${outName}\n`)
+      } else {
+        const spin = p.spinner()
+        spin.start(`转换 ${mdName} → ${outName}`)
+        try {
+          const result = await runConvert({
+            md: mdName,
+            theme: themeArg,
+            out: outPath,
+            cwd,
+            showFixDiff: false,
+          })
+          spin.stop(result.mdWrittenBack ? `完成 ${outName}（已写回 md）` : `完成 ${outName}`)
+        } catch (err) {
+          spin.stop(`失败 ${outName}`)
+          throw err
+        }
+      }
       ok++
     } catch (err) {
-      spin.stop(`失败 ${outName}`)
       p.log.error(err instanceof Error ? err.message : String(err))
       fail++
     }
@@ -167,7 +185,7 @@ async function runBatchConvert(
 
 /** 路径 A：先选 md（多选）→ 再选主题（含内置） */
 async function mdFirstFlow(cwd: string, mdCandidates: string[]): Promise<void> {
-  const mdList = await promptMdMultiselect(cwd, mdCandidates)
+  const mdList = await promptMdMultiselect(mdCandidates)
   if (!mdList?.length) return
 
   const themeOptions = buildThemeOptions(cwd)
@@ -224,7 +242,6 @@ async function themeFirstFlow(
 
   const themeArg = resolveThemeSelection(themeSelected, cwd)
   const mdList = await promptMdMultiselect(
-    cwd,
     listMdFiles(cwd),
     '选择要转换的 Markdown（空格多选）'
   )

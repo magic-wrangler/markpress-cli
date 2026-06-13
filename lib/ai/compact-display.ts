@@ -19,8 +19,9 @@ export class CompactAiDisplay {
   private contentChars = 0
   private started = false
 
-  start(): void {
+  start(initialMessage = '等待回复…'): void {
     if (this.started) return
+    this.message = initialMessage
     this.started = true
     this.timer = setInterval(() => {
       const icon = FRAMES[this.frame++ % FRAMES.length]

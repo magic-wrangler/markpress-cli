@@ -16,7 +16,9 @@ const SLASH_MENU: SlashCommand[] = [
   { slash: '/配置', command: '配置', desc: 'API 设置' },
   { slash: '/保存', command: '保存', desc: '保存主题' },
   { slash: '/内置主题', command: '内置主题', desc: '内置主题' },
+  { slash: '/转换', command: '转换', desc: '转换向导' },
   { slash: '/帮我转换', command: '帮我转换', desc: '转换向导' },
+  { slash: '/convert', command: 'convert', desc: '转换向导' },
 ]
 
 /** 含中文别名，供 Tab 补全与解析 */
@@ -31,6 +33,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { slash: '/模型帮助', command: MODEL_COMMANDS.help.zh, desc: '命令帮助' },
   { slash: '/help', command: MODEL_COMMANDS.help.en, desc: '命令帮助' },
   { slash: '/如何转换', command: '如何转换', desc: '转换说明' },
+  { slash: '/生成html', command: '生成html', desc: '转换向导' },
 ]
 
 const SLASH_MAP = new Map(SLASH_COMMANDS.map((c) => [c.slash.toLowerCase(), c.command]))

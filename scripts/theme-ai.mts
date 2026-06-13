@@ -41,6 +41,7 @@ import {
   sendThemeMessage,
 } from '../lib/ai/theme-generator.ts'
 import { runConvert } from '../lib/convert-core.ts'
+import { shouldAiFixOnConvert } from '../lib/convert-ai-fix.ts'
 import { tryParseInlineConvert } from '../lib/inline-convert.ts'
 import { formatBaseThemeSwitchHint } from '../lib/ai/builtin-theme-context.ts'
 import { getKnowledgeSourceHint } from '../lib/ai/knowledge-loader.ts'
@@ -50,8 +51,15 @@ import {
   isAtFilePickerInput,
   parseAtFilter,
 } from '../lib/ai/convert-wizard.ts'
-import { tryLocalInfoReply, isConvertRequestQuery, parseModelManageQuery } from '../lib/ai/local-commands.ts'
+import {
+  tryLocalInfoReply,
+  isConvertRequestQuery,
+  parseModelManageQuery,
+  parseMarkdownFixQuery,
+} from '../lib/ai/local-commands.ts'
+import { runMarkdownFixWizard } from '../lib/ai/markdown-fix-wizard.ts'
 import { resolveSlashInput } from '../lib/ai/slash-commands.ts'
+import { runQuickConvert } from './quick-convert.mts'
 
 const EXIT_WORDS = new Set(['退出', 'quit', 'exit', 'q'])
 const SAVE_WORDS = new Set(['保存', 'save'])
@@ -118,6 +126,15 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
     return
   }
 
+  if (
+    argv[0] === '-c' ||
+    argv[0] === '--convert' ||
+    argv[0] === 'convert'
+  ) {
+    await runQuickConvert(argv.slice(1))
+    return
+  }
+
   const cwd = process.cwd()
 
   console.log('\nMarkpress · AI 创建主题\n')
@@ -132,7 +149,8 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
   const hints = [
     formatBaseThemeSwitchHint(),
     '描述文档风格，如：表头再深一点、字号加大',
-    '输入 @：选 Markdown（可多选）或先选主题 JSON · 「帮我转换」同上',
+    '输入 @ 或说 转换 / 转成html：选 md（可全选）+ 主题并转换',
+    '输入「修复」或「检查」：自动修复 Markdown 格式（#1212、\\# 标题等）',
     '输入「内置主题」或「如何转换」查看说明',
     '模型列表 · 模型新增 · 模型修改 · 模型删除',
     '保存 · 配置 · 退出 · Ctrl+C 退出',
@@ -229,6 +247,12 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
         continue
       }
 
+      const fixMode = parseMarkdownFixQuery(text)
+      if (fixMode) {
+        await runMarkdownFixWizard(chat, cwd, fixMode)
+        continue
+      }
+
       if (isConvertRequestQuery(text)) {
         await runConvertWizard(chat, cwd)
         continue
@@ -237,16 +261,30 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
       const convertArgs = tryParseInlineConvert(text)
       if (convertArgs) {
         try {
-          const { outPath } = await withSpinner(chat, `转换 ${convertArgs.md}`, () =>
+          const useAi = shouldAiFixOnConvert()
+          const run = () =>
             runConvert({
               md: convertArgs.md,
               theme: convertArgs.theme,
               out: convertArgs.out || undefined,
               customJs: convertArgs.customJs || undefined,
               cwd,
+              showFixDiff: useAi,
             })
-          )
-          printStatus('ok', `已生成 ${outPath}`)
+          if (useAi) {
+            chat.release()
+            const result = await run()
+            if (result.mdWrittenBack) {
+              printStatus('ok', `已写回 ${convertArgs.md}`)
+            }
+            printStatus('ok', `已生成 ${result.outPath}`)
+          } else {
+            const result = await withSpinner(chat, `转换 ${convertArgs.md}`, run)
+            if (result.mdWrittenBack) {
+              printStatus('ok', `已写回 ${convertArgs.md}`)
+            }
+            printStatus('ok', `已生成 ${result.outPath}`)
+          }
         } catch (err) {
           printStatus('warn', err instanceof Error ? err.message : String(err))
         }

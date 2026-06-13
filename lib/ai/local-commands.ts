@@ -20,7 +20,7 @@ export function isBuiltinThemesQuery(text: string): boolean {
   return patterns.some((p) => p.test(t))
 }
 
-/** 识别「如何转换 / 怎么用」类问题 */
+/** 识别「如何转换 / 怎么用」类问题（疑问句 → 说明，不启动向导） */
 export function isConvertHelpQuery(text: string): boolean {
   const t = normalizeQuery(text)
   if (!t) return false
@@ -31,16 +31,15 @@ export function isConvertHelpQuery(text: string): boolean {
     /怎样转换/,
     /如何转成/,
     /怎么转成/,
-    /怎么生成html/i,
-    /如何生成html/i,
+    /怎么生成\s*html/i,
+    /如何生成\s*html/i,
     /convert.*怎么用/i,
     /怎么用.*convert/i,
-    /^转换$/,
     /^怎么用$/,
     /^如何使用$/,
     /^怎么使用$/,
     /使用说明/,
-    /帮助$/,
+    /^帮助$/,
     /^help$/i,
   ]
 
@@ -88,31 +87,91 @@ export function formatConvertHelpReply(): string {
     '3. 使用 AI 生成的主题',
     '   mpr convert --md 协议.md --theme ./我的主题.json',
     '',
-    '4. 在本对话中直接粘贴',
-    '   convert --md 协议.md --theme ./我的主题.json',
+    '4. 在本对话中直接说（不必固定「帮我转换」）',
+    '   转换 · 转成 html · 生成 html · @ · 帮我转换',
+    '   或粘贴：convert --md 协议.md --theme ./我的主题.json',
     '',
     `内置主题可直接使用：${themes}`,
     '输入「内置主题」查看详情；描述风格可 AI 生成新主题。',
   ].join('\n')
 }
 
-/** 识别「帮我转换」类请求，走本地向导 */
+export type MarkdownFixMode = 'check' | 'fix'
+
+/** 识别「检查 / 修复 Markdown」类请求 */
+export function parseMarkdownFixQuery(text: string): MarkdownFixMode | null {
+  const t = normalizeQuery(text)
+  if (!t) return null
+
+  const fixPatterns = [
+    /^修复$/,
+    /^fix$/i,
+    /修复.*(?:md|markdown|文档|格式|语法)/i,
+    /帮我修复/,
+    /帮忙修复/,
+    /请修复/,
+    /fix\s+(?:md|markdown)/i,
+  ]
+
+  const checkPatterns = [
+    /^检查$/,
+    /^check$/i,
+    /检查.*(?:md|markdown|文档|格式|语法)/i,
+    /帮我检查/,
+    /看看.*(?:md|markdown|文档)/,
+    /check\s+(?:md|markdown)/i,
+  ]
+
+  if (fixPatterns.some((p) => p.test(t))) return 'fix'
+  if (checkPatterns.some((p) => p.test(t))) return 'check'
+  return null
+}
+
+export function isMarkdownFixQuery(text: string): boolean {
+  return parseMarkdownFixQuery(text) !== null
+}
+
+/** 识别「开始转换」类请求，走本地向导（说法灵活，不必固定「帮我转换」） */
 export function isConvertRequestQuery(text: string): boolean {
   const t = normalizeQuery(text)
   if (!t) return false
 
+  // 疑问句留给「如何转换」说明
+  if (/^(如何|怎么|怎样|为何|为什么)/.test(t)) return false
+
   const patterns = [
+    /^convert$/i,
+    /^转换$/,
+    /^转$/,
     /帮我转换/,
     /帮忙转换/,
     /帮我转/,
     /帮忙转/,
     /我要转换/,
     /我要转/,
+    /我想转换/,
+    /我想转/,
+    /请转换/,
+    /请转/,
     /转换一下/,
+    /转一下/,
     /能帮我转/,
     /可以帮我转/,
     /请帮我转/,
     /^转换吧$/,
+    /^开始转换/,
+    /^去转换/,
+    /^现在转换/,
+    /转成\s*html/i,
+    /转换\s*成\s*html/i,
+    /生成\s*html/i,
+    /导出\s*html/i,
+    /出\s*html/i,
+    /转\s*html/i,
+    /转换\s*(?:md|markdown|文档|文件)/i,
+    /(?:md|markdown|文档|文件)\s*转(?:换|成|为)?/i,
+    /批量转换/,
+    /全部转换/,
   ]
 
   return patterns.some((p) => p.test(t))
@@ -124,6 +183,7 @@ export function isInfoQuery(text: string): boolean {
     isBuiltinThemesQuery(text) ||
     isConvertHelpQuery(text) ||
     isConvertRequestQuery(text) ||
+    isMarkdownFixQuery(text) ||
     parseModelManageQuery(text) !== null
   )
 }

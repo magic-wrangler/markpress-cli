@@ -76,7 +76,8 @@ mpr template copy --out 我的文档.md
 - `退出` 或 Ctrl+C：结束对话
 - `内置主题`：查看内置主题列表
 - `如何转换`：查看转换说明
-- `帮我转换`：向导选择 md + 主题并转换
+- `@` / **转换** / **转成 html** / **生成 html** / **帮我转换** 等：向导选 md + 主题并转换（说法灵活，不必固定一句）
+- **修复** / **检查**：修复 Markdown 格式（`#1212`、`\*\*` 等），详见 [markdown-fix.md](./markdown-fix.md)
 - `@`：两条路径 — **选 Markdown**（可多选 → 再选主题）或 **先选主题**（内置 + 本地 JSON → 再多选 md）
 - 描述风格：如「表头再深一点」→ 生成/修改主题 JSON
 
@@ -88,6 +89,7 @@ mpr template copy --out 我的文档.md
 | `MARKPRESS_OUTPUT` | HTML 输出目录（默认 `./output`） |
 | `DEEPSEEK_API_KEY` | AI 功能所需（可用 `mpr ai config` 保存） |
 | `DEEPSEEK_MODEL` | 默认 `deepseek-v4-flash`；也可用 `mpr ai config` →「自定义输入…」 |
+| `MARKPRESS_MD_NO_PREPROCESS` | 跳过转换前 Markdown 规则预处理 |
 | `MARKPRESS_KNOWLEDGE_DIR` | 自定义知识库目录（覆盖默认 `knowledge/`） |
 
 ## AI 回答原则
@@ -98,6 +100,7 @@ mpr template copy --out 我的文档.md
 4. 用户**描述风格或要求改主题**（如「标题改深蓝」「表头加深」）→ 基于内置主题完整 JSON 修改，**输出完整 JSON**
 5. 不要声称「没有内置主题库」；不要编造 markpress 不存在的功能
 6. **「模型」≠ 主题模板**：主题用「内置主题」「正式版」等；DeepSeek 模型用 `模型` / `配置` 指令
+7. 用户问 **Markdown 格式、反斜杠、标题/加粗不生效** → 见 [markdown-fix.md](./markdown-fix.md)，引导 **修复** / **检查**；生成 md 时**不要**过度转义
 
 ## StyleConfig 主题 JSON 结构
 

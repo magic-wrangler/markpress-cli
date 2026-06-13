@@ -14,6 +14,8 @@ export interface DeepSeekFileConfig {
 export interface AiConfigFile {
   provider: 'deepseek'
   deepseek: DeepSeekFileConfig
+  /** 为 false 时转换不自动 AI 修复（默认 true / 自动） */
+  convertAutoAiFix?: boolean
 }
 
 const CONFIG_DIR = join(homedir(), '.markpress')

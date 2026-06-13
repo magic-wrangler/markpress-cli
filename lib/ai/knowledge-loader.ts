@@ -40,6 +40,16 @@ export function loadKnowledgeMarkdown(): string {
   return sections.join('\n\n---\n\n')
 }
 
+/** 读取 knowledge 目录下单个 .md（供专项 AI 任务使用） */
+export function loadKnowledgeFile(name: string): string {
+  const dir = getKnowledgeDir()
+  const filePath = join(dir, name)
+  if (!existsSync(filePath) || !statSync(filePath).isFile()) {
+    return ''
+  }
+  return readFileSync(filePath, 'utf-8').trim()
+}
+
 export function getKnowledgeSourceHint(): string {
   const dir = getKnowledgeDir()
   const count = existsSync(dir)
