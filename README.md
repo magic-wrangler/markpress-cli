@@ -1,5 +1,7 @@
 # markpress-cli
 
+[English README](README.en.md)
+
 将 **Markdown** + **主题 JSON** 转为可独立打开的 **带样式 HTML**。
 
 - 用户自备 `.md` 文档
