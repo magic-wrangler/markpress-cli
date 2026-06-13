@@ -6,6 +6,7 @@
  * - 行首被错误转义：`\# 标题` → `# 标题`
  * - 行内 AI 误转义：`\*\*bold\*\*`、`{win\_score}` 等
  * - 多余空行（列表项之间、连续 3+ 空行）与缺失空行（标题/段落与列表之间）
+ * - 美化：去行尾空白、规范表格单元格间距、文件末尾单一换行
  */
 
 function fixInlineEscapes(line: string): string {
@@ -61,10 +62,26 @@ function isHeadingLine(line: string): boolean {
   return /^\s*#{1,6}\s/.test(line)
 }
 
+/** GFM 表格行（含表头、分隔行、数据行） */
+function isTableLine(line: string): boolean {
+  const t = line.trim()
+  if (!t.includes('|')) return false
+
+  // |---|:---:| 或 ---|---
+  if (/^(\|?\s*:?-{3,}:?\s*)+(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(t)) {
+    return true
+  }
+
+  if (/^\|/.test(t) || /\|\s*$/.test(t)) return true
+
+  return (t.match(/\|/g) || []).length >= 2
+}
+
 /** 两段内容之间是否应保留/插入一个空行 */
 function needsBlankBetween(prev: string, next: string): boolean {
   if (isBlank(prev) || isBlank(next)) return false
   if (isListLine(prev) && isListLine(next)) return false
+  if (isTableLine(prev) && isTableLine(next)) return false
   if (isHeadingLine(prev)) return true
   if (isListLine(next) && !isListLine(prev)) return true
   if (isListLine(prev) && !isListLine(next)) return true
@@ -107,6 +124,12 @@ export function normalizeBlankLines(lines: string[]): string[] {
         continue
       }
 
+      // 表格行之间不要空行（否则 marked 会拆表）
+      if (isTableLine(prev) && isTableLine(next)) {
+        i = j - 1
+        continue
+      }
+
       // 已有空行则不再追加（合并连续空行）
       if (fixed.length > 0 && isBlank(fixed[fixed.length - 1]!)) {
         i = j - 1
@@ -136,6 +159,66 @@ export function normalizeBlankLines(lines: string[]): string[] {
   return fixed
 }
 
+/** 去掉行尾空白（不影响行首缩进，代码块内跳过） */
+function trimTrailingWhitespace(line: string): string {
+  return line.replace(/[ \t]+$/u, '')
+}
+
+/** 规范 GFM 表格行：`| a | b |`，单元格 trim，分隔行保留对齐符 */
+function beautifyTableLine(line: string): string {
+  const t = line.trim()
+  if (!isTableLine(t)) return line
+
+  const cells: string[] = []
+  let cell = ''
+  let i = 0
+  while (i < t.length) {
+    const ch = t[i]!
+    if (ch === '|') {
+      cells.push(cell.trim())
+      cell = ''
+      i++
+      continue
+    }
+    cell += ch
+    i++
+  }
+  cells.push(cell.trim())
+
+  if (cells.length && cells[0] === '') cells.shift()
+  if (cells.length && cells[cells.length - 1] === '') cells.pop()
+  if (cells.length === 0) return line
+
+  return `| ${cells.join(' | ')} |`
+}
+
+/** 修复后的轻量美化（不改变语义） */
+function beautifyLines(lines: string[]): string[] {
+  const out: string[] = []
+  let inFence = false
+
+  for (const line of lines) {
+    if (isFenceDelimiter(line)) {
+      inFence = !inFence
+      out.push(line)
+      continue
+    }
+
+    if (inFence) {
+      out.push(line)
+      continue
+    }
+
+    let fixed = trimTrailingWhitespace(line)
+    if (isTableLine(fixed)) {
+      fixed = beautifyTableLine(fixed)
+    }
+    out.push(fixed)
+  }
+
+  return out
+}
+
 function processLines(lines: string[]): string[] {
   const out: string[] = []
   let inFence = false
@@ -149,11 +232,12 @@ function processLines(lines: string[]): string[] {
     out.push(inFence ? line : fixMarkdownLine(line))
   }
 
-  return normalizeBlankLines(out)
+  return beautifyLines(normalizeBlankLines(out))
 }
 
 export function preprocessMarkdown(source: string): string {
-  return processLines(source.split(/\r?\n/)).join('\n')
+  const text = processLines(source.split(/\r?\n/)).join('\n')
+  return text.length > 0 ? `${text}\n` : text
 }
 
 export interface PreprocessChange {
