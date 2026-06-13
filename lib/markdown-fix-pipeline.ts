@@ -1,12 +1,14 @@
 import { diffPreprocessMarkdown } from './markdown-preprocess.ts'
 import { aiFixMarkdown } from './ai/markdown-fixer.ts'
 import { resolveDeepSeekConfig } from './ai/config.ts'
+import type { TokenUsage } from './ai/types.ts'
 import type { PreprocessChange } from './markdown-preprocess.ts'
 
 export interface FixMarkdownOptions {
   aiFix?: boolean
   noPreprocess?: boolean
   onStream?: (chunk: string, kind: 'reasoning' | 'content') => void
+  onUsage?: (usage: TokenUsage) => void
   signal?: AbortSignal
 }
 
@@ -51,12 +53,18 @@ export async function fixMarkdownContent(
   }
 
   if (opts.aiFix && resolveDeepSeekConfig()) {
-    const callbacks = opts.onStream
-      ? {
-          onReasoningDelta: (chunk: string) => opts.onStream!(chunk, 'reasoning'),
-          onContentDelta: (chunk: string) => opts.onStream!(chunk, 'content'),
-        }
-      : undefined
+    const callbacks =
+      opts.onStream || opts.onUsage
+        ? {
+            onReasoningDelta: opts.onStream
+              ? (chunk: string) => opts.onStream!(chunk, 'reasoning')
+              : undefined,
+            onContentDelta: opts.onStream
+              ? (chunk: string) => opts.onStream!(chunk, 'content')
+              : undefined,
+            onUsage: opts.onUsage,
+          }
+        : undefined
     text = await aiFixMarkdown(text, callbacks, opts.signal)
     aiUsed = true
     if (!skipPreprocess) {

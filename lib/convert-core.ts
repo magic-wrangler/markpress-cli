@@ -139,6 +139,11 @@ export async function runConvert(opts: ConvertOptions): Promise<ConvertResult> {
     onStream = display.onStream
   }
 
+  let onUsage = opts.onUsage
+  if (display && !onUsage) {
+    onUsage = display.onUsage
+  }
+
   let markdown: string
   let ruleChanges: PreprocessChange[] = []
 
@@ -147,6 +152,7 @@ export async function runConvert(opts: ConvertOptions): Promise<ConvertResult> {
       aiFix: useAiFix,
       noPreprocess: opts.noPreprocess,
       onStream,
+      onUsage,
     })
     markdown = result.text
     ruleChanges = result.ruleChanges

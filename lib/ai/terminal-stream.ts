@@ -2,6 +2,9 @@
  * 终端流式输出（配合 DeepSeek SSE）
  */
 
+import type { TokenUsage } from './types.ts'
+import { formatTokenUsageLine } from './token-usage.ts'
+
 const DIM = '\x1b[90m'
 const CYAN = '\x1b[36m'
 const RESET = '\x1b[0m'
@@ -9,6 +12,7 @@ const RESET = '\x1b[0m'
 export class TerminalStreamWriter {
   private reasoningOpen = false
   private contentOpen = false
+  private usage: TokenUsage | null = null
 
   beginReasoning(): void {
     if (this.reasoningOpen) return
@@ -46,8 +50,15 @@ export class TerminalStreamWriter {
     this.contentOpen = false
   }
 
+  onUsage(usage: TokenUsage): void {
+    this.usage = usage
+  }
+
   finish(): void {
     this.endReasoning()
     this.endContent()
+    if (this.usage) {
+      process.stdout.write(`${DIM}${formatTokenUsageLine(this.usage)}${RESET}\n`)
+    }
   }
 }

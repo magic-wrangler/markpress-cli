@@ -3,7 +3,7 @@ import { validateStyleConfigObject } from '../convert-core.ts'
 import { buildThemeSystemPrompt } from './prompts/theme.ts'
 import { detectBaseThemeId, DEFAULT_BASE_THEME_ID } from './builtin-theme-context.ts'
 import { getProvider } from './providers/index.ts'
-import type { ChatMessage, LLMProvider } from './types.ts'
+import type { ChatMessage, LLMProvider, TokenUsage } from './types.ts'
 
 const JSON_BLOCK_RE = /```(?:json)?\s*([\s\S]*?)```/gi
 
@@ -65,7 +65,8 @@ export async function sendThemeMessage(
   session: ThemeChatSession,
   userInput: string,
   onStream?: (chunk: string, kind: 'reasoning' | 'content') => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onUsage?: (usage: TokenUsage) => void
 ): Promise<{ reply: string; theme: StyleConfig | null }> {
   const newBase = detectBaseThemeId(userInput)
   if (newBase && newBase !== session.baseThemeId) {
@@ -80,6 +81,7 @@ export async function sendThemeMessage(
         {
           onReasoningDelta: (text) => onStream(text, 'reasoning'),
           onContentDelta: (text) => onStream(text, 'content'),
+          onUsage,
         },
         signal
       )

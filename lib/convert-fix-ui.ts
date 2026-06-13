@@ -1,8 +1,10 @@
 import { CompactAiDisplay, isVerboseAiDisplay } from './ai/compact-display.ts'
 import { TerminalStreamWriter } from './ai/terminal-stream.ts'
+import type { TokenUsage } from './ai/types.ts'
 
 export interface FixStreamDisplay {
   onStream: (chunk: string, kind: 'reasoning' | 'content') => void
+  onUsage: (usage: TokenUsage) => void
   finish: () => void
   fail: () => void
 }
@@ -18,6 +20,7 @@ export function createFixStreamDisplay(initialMessage = '思考中…'): FixStre
         if (kind === 'reasoning') writer.writeReasoning(chunk)
         else writer.writeContent(chunk)
       },
+      onUsage: (usage) => writer.onUsage(usage),
       finish: () => writer.finish(),
       fail: () => writer.finish(),
     }
@@ -30,6 +33,7 @@ export function createFixStreamDisplay(initialMessage = '思考中…'): FixStre
       if (kind === 'reasoning') compact.onReasoning(chunk)
       else compact.onContent(chunk)
     },
+    onUsage: (usage) => compact.onUsage(usage),
     finish: () => compact.finish(),
     fail: () => compact.fail(),
   }

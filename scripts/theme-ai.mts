@@ -309,7 +309,11 @@ export async function runThemeAi(argv: string[] = []): Promise<void> {
               else compact.onContent(chunk)
             }
           },
-          abort.signal
+          abort.signal,
+          (usage) => {
+            if (verbose && writer) writer.onUsage(usage)
+            else if (compact) compact.onUsage(usage)
+          }
         )
 
         if (writer) writer.finish()

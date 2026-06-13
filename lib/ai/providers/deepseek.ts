@@ -1,8 +1,10 @@
 import { loadDeepSeekConfig } from '../config.ts'
+import { normalizeTokenUsage } from '../token-usage.ts'
 import type { ChatMessage, LLMProvider, StreamCallbacks } from '../types.ts'
 
 interface ChatCompletionResponse {
   choices?: Array<{ message?: { content?: string } }>
+  usage?: Record<string, unknown>
   error?: { message?: string }
 }
 
@@ -13,6 +15,7 @@ interface StreamDelta {
 
 interface StreamChunk {
   choices?: Array<{ delta?: StreamDelta }>
+  usage?: Record<string, unknown> | null
   error?: { message?: string }
 }
 
@@ -69,6 +72,11 @@ async function readSseStream(
           throw new Error(chunk.error.message)
         }
 
+        const usage = normalizeTokenUsage(chunk.usage)
+        if (usage) {
+          callbacks.onUsage?.(usage)
+        }
+
         const delta = chunk.choices?.[0]?.delta
         if (!delta) continue
 
@@ -109,6 +117,7 @@ async function requestChat(
       messages,
       temperature: config.temperature,
       stream,
+      ...(stream ? { stream_options: { include_usage: true } } : {}),
     }),
     signal,
   })
@@ -126,6 +135,10 @@ async function requestChat(
   }
 
   const data = (await res.json()) as ChatCompletionResponse
+  const usage = normalizeTokenUsage(data.usage)
+  if (usage) {
+    callbacks?.onUsage?.(usage)
+  }
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) {
     throw new Error('DeepSeek API 返回内容为空')

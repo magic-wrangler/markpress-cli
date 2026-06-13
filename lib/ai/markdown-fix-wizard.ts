@@ -48,6 +48,7 @@ async function runFixWithAiDisplay(
     const result = await fixMarkdownContent(raw, {
       aiFix: true,
       onStream: display.onStream,
+      onUsage: display.onUsage,
     })
     display.finish()
     return { text: result.text, aiUsed: true }

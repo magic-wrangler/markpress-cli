@@ -1,3 +1,6 @@
+import type { TokenUsage } from './types.ts'
+import { formatTokenUsageLine } from './token-usage.ts'
+
 /** 是否显示完整流式思考/回复（默认折叠，避免刷屏） */
 export function isVerboseAiDisplay(): boolean {
   return (
@@ -7,6 +10,8 @@ export function isVerboseAiDisplay(): boolean {
 }
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const DIM = '\x1b[90m'
+const RESET = '\x1b[0m'
 
 /**
  * 紧凑模式：仅写 stdout，不占用 stdin（避免与 readline 冲突）
@@ -17,6 +22,7 @@ export class CompactAiDisplay {
   private message = '等待回复…'
   private reasoningChars = 0
   private contentChars = 0
+  private usage: TokenUsage | null = null
   private started = false
 
   start(initialMessage = '等待回复…'): void {
@@ -48,6 +54,10 @@ export class CompactAiDisplay {
     }
   }
 
+  onUsage(usage: TokenUsage): void {
+    this.usage = usage
+  }
+
   finish(_hasTheme?: boolean): void {
     if (!this.started) return
     if (this.timer) {
@@ -55,6 +65,9 @@ export class CompactAiDisplay {
       this.timer = null
     }
     process.stdout.write('\r\x1b[2K')
+    if (this.usage) {
+      console.log(`${DIM}${formatTokenUsageLine(this.usage)}${RESET}`)
+    }
     this.started = false
   }
 
