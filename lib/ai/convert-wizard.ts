@@ -105,16 +105,22 @@ async function promptMdMultiselect(
 async function runBatchConvert(
   cwd: string,
   mdList: string[],
-  themeArg: string
+  themeArg: string,
+  wizardOpts: ConvertWizardOptions = {}
 ): Promise<void> {
   const outputDir = resolve(process.env.MARKPRESS_OUTPUT ?? join(cwd, 'output'))
   mkdirSync(outputDir, { recursive: true })
 
   p.log.info(`主题：${themeArg}`)
   p.log.info(`将转换 ${mdList.length} 个文件 → ${outputDir}`)
-  const aiFixHint = describeConvertAiFixStatus()
-  if (aiFixHint) {
-    p.log.info(aiFixHint)
+  const useAi = !wizardOpts.noAiFix && shouldAiFixOnConvert()
+  if (!useAi) {
+    p.log.info('转换时将跳过 AI 修复（仅规则预处理）')
+  } else {
+    const aiFixHint = describeConvertAiFixStatus()
+    if (aiFixHint) {
+      p.log.info(aiFixHint)
+    }
   }
 
   const toOverwrite = mdList.filter((name) => existsSync(outputPathForMd(outputDir, name)))
@@ -136,10 +142,10 @@ async function runBatchConvert(
   for (const mdName of mdList) {
     const outName = htmlNameForMd(mdName)
     const outPath = outputPathForMd(outputDir, mdName)
-    const useAi = shouldAiFixOnConvert()
+    const useAiFix = useAi
 
     try {
-      if (useAi) {
+      if (useAiFix) {
         console.log(`\n· ${mdName}`)
         const result = await runConvert({
           md: mdName,
@@ -161,6 +167,7 @@ async function runBatchConvert(
             theme: themeArg,
             out: outPath,
             cwd,
+            noAiFix: !useAiFix,
             showFixDiff: false,
           })
           spin.stop(result.mdWrittenBack ? `完成 ${outName}（已写回 md）` : `完成 ${outName}`)
@@ -184,7 +191,11 @@ async function runBatchConvert(
 }
 
 /** 路径 A：先选 md（多选）→ 再选主题（含内置） */
-async function mdFirstFlow(cwd: string, mdCandidates: string[]): Promise<void> {
+async function mdFirstFlow(
+  cwd: string,
+  mdCandidates: string[],
+  wizardOpts: ConvertWizardOptions = {}
+): Promise<void> {
   const mdList = await promptMdMultiselect(mdCandidates)
   if (!mdList?.length) return
 
@@ -203,21 +214,23 @@ async function mdFirstFlow(cwd: string, mdCandidates: string[]): Promise<void> {
     return
   }
 
-  await runBatchConvert(cwd, mdList, resolveThemeSelection(themeSelected as string, cwd))
+  await runBatchConvert(cwd, mdList, resolveThemeSelection(themeSelected as string, cwd), wizardOpts)
 }
 
 async function runMdFirstPath(
   chat: ChatPrompt,
   cwd: string,
-  mdCandidates: string[]
+  mdCandidates: string[],
+  wizardOpts: ConvertWizardOptions = {}
 ): Promise<void> {
-  await withClackUi(chat, async () => mdFirstFlow(cwd, mdCandidates))
+  await withClackUi(chat, async () => mdFirstFlow(cwd, mdCandidates, wizardOpts))
 }
 
 /** 路径 B：先选主题（内置 + 本地 JSON）→ 再选 md（多选） */
 async function themeFirstFlow(
   cwd: string,
-  preselectedTheme?: string
+  preselectedTheme?: string,
+  wizardOpts: ConvertWizardOptions = {}
 ): Promise<void> {
   const themeOptions = buildThemeOptions(cwd)
   if (themeOptions.length === 0) {
@@ -247,7 +260,7 @@ async function themeFirstFlow(
   )
   if (!mdList?.length) return
 
-  await runBatchConvert(cwd, mdList, themeArg)
+  await runBatchConvert(cwd, mdList, themeArg, wizardOpts)
 }
 
 async function runThemeFirstPath(
@@ -262,6 +275,8 @@ async function runThemeFirstPath(
 
 export interface ConvertWizardOptions {
   preselectedMd?: string
+  /** 为 true 时跳过 AI 修复（仍做规则预处理） */
+  noAiFix?: boolean
 }
 
 /** 「帮我转换」向导：md 多选 → 主题 */
@@ -283,11 +298,11 @@ export async function runConvertWizard(
       : mdCandidates
 
   if (opts.preselectedMd && initial.length === 1) {
-    await runMdFirstPath(chat, cwd, initial)
+    await runMdFirstPath(chat, cwd, initial, opts)
     return
   }
 
-  await runMdFirstPath(chat, cwd, mdCandidates)
+  await runMdFirstPath(chat, cwd, mdCandidates, opts)
 }
 
 /** 输入 @ 触发：md 与 json 两条互斥路径 */

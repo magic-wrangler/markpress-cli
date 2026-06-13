@@ -6,7 +6,7 @@ import { readdirSync, existsSync, mkdirSync } from 'node:fs'
 import { join, resolve, basename, extname } from 'node:path'
 import * as p from '@clack/prompts'
 import { runConvert, isValidThemeFile } from '../lib/convert-core.ts'
-import { shouldAiFixOnConvert } from '../lib/convert-ai-fix.ts'
+import { shouldAiFixOnConvert, describeConvertAiFixStatus } from '../lib/convert-ai-fix.ts'
 import { listBuiltinThemes } from '../lib/theme-resolver.ts'
 import { runTemplateCopy } from './template.mts'
 import { parseConvertArgs } from '../lib/parse-args.ts'
@@ -17,6 +17,15 @@ export interface InteractiveOptions {
   inputDir?: string
   outputDir?: string
   skipIntro?: boolean
+  /** 为 true 时跳过 AI 修复（仍做规则预处理）；可被 --ai-fix 覆盖 */
+  noAiFix?: boolean
+}
+
+function resolveInteractiveAiFix(opts: InteractiveOptions, argv: string[]): boolean {
+  const args = parseConvertArgs(argv)
+  if (args.aiFix) return shouldAiFixOnConvert({ aiFix: true })
+  if (args.noAiFix || opts.noAiFix) return false
+  return shouldAiFixOnConvert()
 }
 
 function getDirs(opts: InteractiveOptions) {
@@ -54,7 +63,11 @@ function resolveThemeSelection(selected: string, inputDir: string): string {
   return selected
 }
 
-async function runSession(inputDir: string, outputDir: string): Promise<boolean> {
+async function runSession(
+  inputDir: string,
+  outputDir: string,
+  useAiFix: boolean
+): Promise<boolean> {
   mkdirSync(outputDir, { recursive: true })
 
   const mdNames = scanMarkdownDocuments(inputDir).map((f) => f.relativePath)
@@ -119,6 +132,12 @@ async function runSession(inputDir: string, outputDir: string): Promise<boolean>
 
   p.log.info(`主题：${themeArg}`)
   p.log.info(`将转换 ${mdList.length} 个文件 → ${outputDir}`)
+  if (!useAiFix) {
+    p.log.info('转换时将跳过 AI 修复（仅规则预处理）')
+  } else {
+    const aiFixHint = describeConvertAiFixStatus()
+    if (aiFixHint) p.log.info(aiFixHint)
+  }
 
   const toOverwrite = mdList.filter((name) => existsSync(outputPathForMd(outputDir, name)))
   if (toOverwrite.length > 0) {
@@ -143,7 +162,7 @@ async function runSession(inputDir: string, outputDir: string): Promise<boolean>
     const mdPath = join(inputDir, mdName)
     const outName = htmlNameForMd(mdName)
     const outPath = outputPathForMd(outputDir, mdName)
-    const useAi = shouldAiFixOnConvert()
+    const useAi = useAiFix
 
     try {
       if (useAi) {
@@ -168,6 +187,7 @@ async function runSession(inputDir: string, outputDir: string): Promise<boolean>
             theme: themeArg,
             out: outPath,
             cwd: inputDir,
+            noAiFix: !useAiFix,
             showFixDiff: false,
           })
           spin.stop(result.mdWrittenBack ? `完成 ${outName}（已写回 md）` : `完成 ${outName}`)
@@ -199,6 +219,7 @@ async function runSession(inputDir: string, outputDir: string): Promise<boolean>
 
 export async function runInteractive(argv: string[] = [], opts: InteractiveOptions = {}): Promise<void> {
   const { inputDir: argInput, outputDir: argOutput } = parseConvertArgs(argv)
+  const useAiFix = resolveInteractiveAiFix(opts, argv)
   const { inputDir, outputDir } = getDirs({
     inputDir: argInput || opts.inputDir || undefined,
     outputDir: argOutput || opts.outputDir || undefined,
@@ -211,7 +232,7 @@ export async function runInteractive(argv: string[] = [], opts: InteractiveOptio
   p.log.info(`输出目录：${outputDir}`)
 
   while (true) {
-    await runSession(inputDir, outputDir)
+    await runSession(inputDir, outputDir, useAiFix)
 
     const again = await p.confirm({ message: '继续转换更多文件？' })
     if (p.isCancel(again) || !again) {

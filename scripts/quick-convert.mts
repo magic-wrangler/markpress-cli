@@ -6,6 +6,7 @@
 import * as p from '@clack/prompts'
 import { ChatPrompt } from '../lib/ai/chat-prompt.ts'
 import { runConvertWizard } from '../lib/ai/convert-wizard.ts'
+import type { ConvertWizardOptions } from '../lib/ai/convert-wizard.ts'
 import { parseConvertArgs } from '../lib/parse-args.ts'
 import { runConvertAllCli } from './convert.mts'
 
@@ -24,6 +25,7 @@ export function printQuickConvertHelp() {
   -t, --theme <主题>  主题名或 .json 路径（--all 时必需）
   --output-dir <dir>  HTML 输出目录（默认 ./output）
   --no-ai-fix         跳过 AI 修复
+  --ai-fix            显式开启 AI 修复（默认 mpr / mpr -c 不启用）
   --no-write-md       不写回源 md
   -h, --help          显示帮助
 
@@ -41,12 +43,20 @@ export async function runQuickConvert(argv: string[] = []): Promise<void> {
   }
 
   const args = parseConvertArgs(argv)
+  const wizardOpts: ConvertWizardOptions = {
+    noAiFix: !args.aiFix,
+  }
+
   if (args.all) {
-    await runConvertAllCli(argv)
+    const allArgv =
+      args.aiFix || args.noAiFix || argv.includes('--no-ai-fix')
+        ? argv
+        : [...argv, '--no-ai-fix']
+    await runConvertAllCli(allArgv)
     return
   }
 
   p.intro('Markpress · 快速转换')
   const chat = new ChatPrompt()
-  await runConvertWizard(chat, process.cwd())
+  await runConvertWizard(chat, process.cwd(), wizardOpts)
 }

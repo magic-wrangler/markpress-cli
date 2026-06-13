@@ -62,19 +62,30 @@ function isHeadingLine(line: string): boolean {
   return /^\s*#{1,6}\s/.test(line)
 }
 
+/** GFM 表格分隔行 |---|:---:| */
+function isTableSeparatorLine(line: string): boolean {
+  const t = line.trim()
+  return /^(\|?\s*:?-{3,}:?\s*)+(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(t)
+}
+
 /** GFM 表格行（含表头、分隔行、数据行） */
 function isTableLine(line: string): boolean {
   const t = line.trim()
   if (!t.includes('|')) return false
 
-  // |---|:---:| 或 ---|---
-  if (/^(\|?\s*:?-{3,}:?\s*)+(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(t)) {
-    return true
-  }
+  if (isTableSeparatorLine(t)) return true
 
   if (/^\|/.test(t) || /\|\s*$/.test(t)) return true
 
   return (t.match(/\|/g) || []).length >= 2
+}
+
+/** 下一行是否为「新表格」的表头（本行是表头、下一行是 --- 分隔） */
+function isNewTableHeaderAt(lines: string[], index: number): boolean {
+  const cur = lines[index]?.trim() ?? ''
+  const next = lines[index + 1]?.trim() ?? ''
+  if (!isTableLine(cur) || isTableSeparatorLine(cur)) return false
+  return isTableSeparatorLine(next)
 }
 
 /** 两段内容之间是否应保留/插入一个空行 */
@@ -124,8 +135,13 @@ export function normalizeBlankLines(lines: string[]): string[] {
         continue
       }
 
-      // 表格行之间不要空行（否则 marked 会拆表）
+      // 同一张表内的空行：删除；两张独立表之间的空行：保留
       if (isTableLine(prev) && isTableLine(next)) {
+        if (isNewTableHeaderAt(lines, j)) {
+          if (fixed.length > 0 && !isBlank(fixed[fixed.length - 1]!)) {
+            fixed.push('')
+          }
+        }
         i = j - 1
         continue
       }
@@ -145,8 +161,12 @@ export function normalizeBlankLines(lines: string[]): string[] {
     }
 
     const prev = fixed.length > 0 ? fixed[fixed.length - 1]! : ''
-    if (prev && !isBlank(prev) && needsBlankBetween(prev, line)) {
-      fixed.push('')
+    if (prev && !isBlank(prev)) {
+      if (isTableLine(prev) && isTableLine(line) && isNewTableHeaderAt(lines, i)) {
+        fixed.push('')
+      } else if (needsBlankBetween(prev, line)) {
+        fixed.push('')
+      }
     }
 
     fixed.push(line)
