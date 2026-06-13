@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts'
+import { resolveDeepSeekConfig } from './config.ts'
 import {
   DEFAULT_BASE_URL,
   DEFAULT_MODEL,
@@ -148,4 +149,13 @@ export function printCurrentAiConfig(): void {
     p.log.info(`配置路径：${getAiConfigPath()}`)
     return
   }
+}
+
+/** 无 API 配置时引导完成 DeepSeek 设置；已配置则直接通过 */
+export async function ensureAiReady(): Promise<boolean> {
+  if (resolveDeepSeekConfig()) return true
+
+  p.log.warn('尚未配置 DeepSeek，接下来将引导你完成设置')
+  const config = await runAiConfigWizard()
+  return !!config
 }

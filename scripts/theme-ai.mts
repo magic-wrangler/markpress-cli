@@ -5,7 +5,6 @@
 import { writeFileSync, existsSync } from 'node:fs'
 import { resolve, extname } from 'node:path'
 import * as p from '@clack/prompts'
-import { resolveDeepSeekConfig } from '../lib/ai/config.ts'
 import { formatThemePreview } from '../lib/ai/theme-preview.ts'
 import {
   ChatPrompt,
@@ -20,7 +19,7 @@ import {
   withClackUi,
   withSpinner,
 } from '../lib/ai/chat-prompt.ts'
-import { runAiConfigWizard, printCurrentAiConfig } from '../lib/ai/setup.ts'
+import { runAiConfigWizard, printCurrentAiConfig, ensureAiReady } from '../lib/ai/setup.ts'
 import {
   runConfigMenu,
   runAddModel,
@@ -68,14 +67,6 @@ function normalizeFilename(name: string): string {
   const trimmed = name.trim()
   if (!trimmed) return '我的主题.json'
   return extname(trimmed).toLowerCase() === '.json' ? trimmed : `${trimmed}.json`
-}
-
-async function ensureAiReady(): Promise<boolean> {
-  if (resolveDeepSeekConfig()) return true
-
-  p.log.warn('尚未配置 DeepSeek，接下来将引导你完成设置')
-  const config = await runAiConfigWizard()
-  return !!config
 }
 
 async function promptSaveTheme(
